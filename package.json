@@ -19,5 +19,6 @@
   "bin": "./index.js",
   "devDependencies": {
     "prettier": "^1.11.1"
-  }
+  },
+  "version": "0.0.0"
 }
