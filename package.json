@@ -1,0 +1,23 @@
+{
+  "name": "zeropack",
+  "description": "Practical zero-config Webpack until you need it",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Trey Shugart <treshugart@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "babel-loader": "^7.1.4",
+    "flow-copy-source": "^1.3.0",
+    "fs-extra": "^5.0.0",
+    "uppercamelcase": "^3.0.0",
+    "webpack": "^4.2.0",
+    "webpack-node-externals": "^1.6.0",
+    "yargs": "^11.0.0"
+  },
+  "bin": "./index.js",
+  "devDependencies": {
+    "prettier": "^1.11.1"
+  }
+}
