@@ -1,6 +1,6 @@
 # zeropack
 
-Practical zero-config Webpack until you need it.
+Practical, zero-config Webpack, until you need it.
 
 ## Installing
 
@@ -26,7 +26,7 @@ $ zeropack --mode development
 
 The goal of this project is to provide the most practical zero-config setup and infer defaults where possible from other parts of your repo, such as your `package.json`. When that is not possible, or you want to customise it, you may do so in a number of ways.
 
-Each configuration exported by a `zeropack.js`, `.zeropackrc` or `zeropack` entry in the `package.json` will be merged with the default configuration. You may specify none or all of the aforementioned configuration methods and they will be merged in that order, overriding the defaults.
+Each configuration exported by a `zeropack` entry in the `package.json`, `zeropack.js` or `.zeropackrc` will be merged with the default configuration. You may specify none or all of the aforementioned configuration methods and they will be merged in that order, overriding the defaults.
 
 ### `entry`
 

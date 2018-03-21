@@ -1,6 +1,6 @@
 {
   "name": "zeropack",
-  "description": "Practical zero-config Webpack until you need it",
+  "description": "Practical, zero-config Webpack, until you need it.",
   "main": "index.js",
   "scripts": {
     "test": "jest"
