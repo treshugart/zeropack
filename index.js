@@ -26,9 +26,6 @@ async function cwdRequireJson(file) {
 (async function() {
   const pkg = (await cwdRequireJson("package.json")) || {};
   const opt = {
-    ...(await cwdRequire("zeropack.js")),
-    ...(await cwdRequireJson(".zeropackrc")),
-    ...pkg.zeropack,
     ...{
       entry: "./src/index.js",
       externals: webpackNodeExternals(),
@@ -42,20 +39,29 @@ async function cwdRequireJson(file) {
         libraryTarget: "umd",
         path: path.join(process.cwd(), path.dirname(pkg.main || "dist"))
       }
-    }
+    },
+    ...pkg.zeropack,
+    ...(await cwdRequireJson(".zeropackrc")),
+    ...(await cwdRequire("zeropack.js"))
   };
 
+  // Cleanup any previous runs.
   await fs.remove(opt.output.path);
 
   webpack(opt, (error, stats) => {
     if (error) {
       console.error(error.stack || error);
       console.error(error.details);
+      return;
     } else if (stats.hasErrors() || stats.hasWarnings()) {
       const info = stats.toJson();
       console.warn(info.warnings);
       console.error(info.errors);
-    } else {
+      return;
+    }
+
+    // If using Flow, copy entry source files ot the output directory.
+    if (pkg.devDependencies && pkg.devDependencies["flow-bin"]) {
       const sources = Array.isArray(opt.entry)
         ? Object.values(opt.entry)
         : [opt.entry];
