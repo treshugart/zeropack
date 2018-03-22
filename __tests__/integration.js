@@ -1,12 +1,4 @@
-const exec = require("execa");
-const fs = require("fs-extra");
-const path = require("path");
-const { cwd, read, rm } = require("./__utils__");
-
-async function run(fixture, ...args) {
-  await cwd(fixture);
-  await exec("node", ["../../../bin.js", ...args], { cwd: process.cwd() });
-}
+const { read, run } = require("./__utils__");
 
 test("defaults", async () => {
   await run("defaults");

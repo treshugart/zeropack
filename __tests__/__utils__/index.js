@@ -25,4 +25,9 @@ async function rm(p) {
   await fs.remove(path.join(process.cwd(), p));
 }
 
-module.exports = { cwd, read, rm };
+async function run(fixture, ...args) {
+  await cwd(fixture);
+  await exec("node", ["../../../bin.js", ...args], { cwd: process.cwd() });
+}
+
+module.exports = { cwd, read, rm, run };
