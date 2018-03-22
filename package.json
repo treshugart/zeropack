@@ -21,13 +21,15 @@
     "jest": "^22.4.3",
     "prettier": "^1.11.1"
   },
-  "version": "0.0.0",
+  "version": "0.1.0",
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/__fixtures__/",
       "/__utils__/"
     ],
-    "watchPathIgnorePatterns": ["/__fixtures__/"]
+    "watchPathIgnorePatterns": [
+      "/__fixtures__/"
+    ]
   }
 }
