@@ -1,6 +1,8 @@
 {
   "name": "my-library",
   "main": "./dist/main.js",
+  "module": "./dist/module.js",
+  "esnext": "./dist/esnext.js",
   "zeropack": {
     "entry": "./index.js"
   },
