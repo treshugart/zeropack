@@ -102,7 +102,7 @@ async function zeropack(optOverrides) {
 
           // This ensures that the flow entry point matches the user-defined
           // entry point filename because flow-copy-source copies the source
-          // entry point name as defiend in the file system.
+          // entry point name as defined in the file system.
           await fs.move(
             path.join(opt.output.path, path.basename(opt.entry) + ".flow"),
             path.join(opt.output.path, opt.output.filename + ".flow")
