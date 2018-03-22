@@ -27,6 +27,7 @@ async function getPkg() {
 }
 
 async function getDefaultOptions() {
+  const hasNodeModules = await cwdPath("node_modules");
   const pkg = await getPkg();
   const pkgMain = pkg.main || "index.js";
   const pkgMainBasename = path.basename(pkgMain);
@@ -39,7 +40,7 @@ async function getDefaultOptions() {
 
   return {
     entry: "./src/index.js",
-    externals: webpackNodeExternals(),
+    externals: hasNodeModules ? webpackNodeExternals() : [],
     mode: "production",
     module: {
       rules: [{ test: /\.js$/, use: "babel-loader" }]
@@ -89,15 +90,21 @@ async function zeropack(optOverrides) {
   return new Promise((yup, nup) => {
     webpack(
       opt,
-      errorOrContinue(() => {
+      errorOrContinue(async () => {
         // If using Flow, copy entry source files ot the output directory.
         if (pkg.devDependencies && pkg.devDependencies["flow-bin"]) {
           const sources = Array.isArray(opt.entry)
             ? Object.values(opt.entry)
             : [opt.entry];
-          flowCopySource(sources.map(path.dirname), opt.output.path, {
+
+          await flowCopySource(sources.map(path.dirname), opt.output.path, {
             ignore: "**/__tests__/**"
           });
+
+          await fs.move(
+            path.join(opt.output.path, path.basename(opt.entry) + ".flow"),
+            path.join(opt.output.path, opt.output.filename + ".flow")
+          );
         }
         yup();
       }, nup)

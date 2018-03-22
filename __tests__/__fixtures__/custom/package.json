@@ -1,0 +1,10 @@
+{
+  "name": "my-library",
+  "main": "./dist/main.js",
+  "zeropack": {
+    "entry": "./index.js"
+  },
+  "devDependencies": {
+    "flow-bin": "*"
+  }
+}

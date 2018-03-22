@@ -27,7 +27,11 @@ async function rm(p) {
 
 async function run(fixture, ...args) {
   await cwd(fixture);
-  await exec("node", ["../../../bin.js", ...args], { cwd: process.cwd() });
+  await exec("node", ["../../../bin.js", ...args], {
+    cwd: process.cwd()
+  })
+    .catch(e => console.error(e))
+    .then(r => console.log(r.stdout));
 }
 
 module.exports = { cwd, read, rm, run };
