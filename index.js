@@ -26,23 +26,37 @@ async function getPkg() {
   return (await cwdRequireJson("package.json")) || {};
 }
 
+async function getDefaultOptions() {
+  const pkg = await getPkg();
+  const pkgMain = pkg.main || "index.js";
+  const pkgMainBasename = path.basename(pkgMain);
+  const pkgMainDirname = path.dirname(pkgMain);
+  const pkgName = uppercamelcase(pkg.name || "");
+  const outputPath = path.join(
+    process.cwd(),
+    pkgMainDirname === "." ? "dist" : pkgMainDirname
+  );
+
+  return {
+    entry: "./src/index.js",
+    externals: webpackNodeExternals(),
+    mode: "production",
+    module: {
+      rules: [{ test: /\.js$/, use: "babel-loader" }]
+    },
+    output: {
+      filename: pkgMainBasename,
+      library: pkgName,
+      libraryTarget: "umd",
+      path: outputPath
+    }
+  };
+}
+
 async function getOptions(overrides) {
   const pkg = await getPkg();
   return {
-    ...{
-      entry: "./src/index.js",
-      externals: webpackNodeExternals(),
-      mode: "production",
-      module: {
-        rules: [{ test: /\.js$/, use: "babel-loader" }]
-      },
-      output: {
-        filename: path.basename(pkg.main || "index.js"),
-        library: pkg.name ? uppercamelcase(pkg.name) : undefined,
-        libraryTarget: "umd",
-        path: path.join(process.cwd(), path.dirname(pkg.main || "dist"))
-      }
-    },
+    ...(await getDefaultOptions()),
     ...pkg.zeropack,
     ...(await cwdRequireJson(".zeropackrc")),
     ...(await cwdRequire("zeropack.js")),
@@ -91,4 +105,4 @@ async function zeropack(optOverrides) {
   });
 }
 
-module.exports = { zeropack };
+module.exports = { getDefaultOptions, getOptions, zeropack };

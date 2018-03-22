@@ -1,9 +1,10 @@
 const { zeropack } = require("..");
 const { cwd } = require("./__utils__");
 
+beforeAll(async () => {
+  await cwd("__tests__/__fixtures__/defaults");
+});
+
 test("default", async () => {
-  const restore = await cwd("__tests__/__fixtures__/defaults");
-  console.log(process.cwd());
-  await restore();
-  console.log(process.cwd());
+  await zeropack();
 });
