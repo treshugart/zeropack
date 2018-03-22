@@ -89,7 +89,7 @@ async function zeropack(optOverrides) {
   return new Promise((yup, nup) => {
     webpack(
       opt,
-      errorOrContinue(nup, () => {
+      errorOrContinue(() => {
         // If using Flow, copy entry source files ot the output directory.
         if (pkg.devDependencies && pkg.devDependencies["flow-bin"]) {
           const sources = Array.isArray(opt.entry)
@@ -100,7 +100,7 @@ async function zeropack(optOverrides) {
           });
         }
         yup();
-      })
+      }, nup)
     );
   });
 }

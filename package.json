@@ -23,6 +23,11 @@
   },
   "version": "0.0.0",
   "jest": {
-    "testPathIgnorePatterns": ["/node_modules/", "__fixtures__", "__utils__"]
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__fixtures__/",
+      "/__utils__/"
+    ],
+    "watchPathIgnorePatterns": ["/__fixtures__/"]
   }
 }
