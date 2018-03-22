@@ -31,7 +31,7 @@ async function run(fixture, ...args) {
     cwd: process.cwd()
   })
     .catch(e => console.error(e))
-    .then(r => console.log(r.stdout));
+    .then(r => r.stdout && console.log(r.stdout));
 }
 
 module.exports = { cwd, read, rm, run };

@@ -10,7 +10,7 @@ test("defaults - { mode: development }", async () => {
   expect(await read("dist/index.js")).toMatchSnapshot();
 });
 
-test.only("custom", async () => {
+test("custom", async () => {
   await run("custom");
   expect(await read("dist/main.js")).toMatchSnapshot();
   expect(await read("dist/main.js.flow")).toMatchSnapshot();

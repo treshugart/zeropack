@@ -98,9 +98,13 @@ async function zeropack(optOverrides) {
             : [opt.entry];
 
           await flowCopySource(sources.map(path.dirname), opt.output.path, {
-            ignore: "**/__tests__/**"
+            // We must ignore anything but the entry points.
+            ignore: sources.map(s => `**/!(${path.relative(process.cwd(), s)})`)
           });
 
+          // This ensures that the flow entry point matches the user-defined
+          // entry point filename because flow-copy-source copies the source
+          // entry point name as defiend in the file system.
           await fs.move(
             path.join(opt.output.path, path.basename(opt.entry) + ".flow"),
             path.join(opt.output.path, opt.output.filename + ".flow")
