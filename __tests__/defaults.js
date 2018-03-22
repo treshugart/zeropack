@@ -1,24 +1,23 @@
+const exec = require("execa");
 const fs = require("fs-extra");
 const path = require("path");
 const { zeropack } = require("..");
-const { cwd } = require("./__utils__");
-
-const dir = "__tests__/__fixtures__/defaults";
-const dirDist = path.join(dir, "dist");
+const { cwd, read, rm } = require("./__utils__");
 
 beforeAll(async () => {
-  await cwd(dir);
+  await cwd("defaults");
 });
 
 afterAll(async () => {
-  await fs.remove(dirDist);
+  await rm("dist");
 });
 
-async function output(file) {
-  return (await fs.readFile(path.join(dirDist, file))).toString("utf8");
-}
+test("bin", async () => {
+  await exec("node", ["../../../bin.js"], { cwd: process.cwd() });
+  expect(await read("dist/index.js")).toMatchSnapshot();
+});
 
 test("output", async () => {
   await zeropack();
-  expect(await output("index.js")).toMatchSnapshot();
+  expect(await read("dist/index.js")).toMatchSnapshot();
 });
