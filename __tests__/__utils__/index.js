@@ -1,14 +1,17 @@
 const exec = require("execa");
 const path = require("path");
-const { zeropack: zp } = require("../..");
 
-async function zeropack(...args) {
-  const { filename } = module.parent;
-  const basename = path.basename(filename).replace(".js", "");
-  const cwd = process.cwd();
-  await exec("cd", [path.join(cwd, "__tests__", "__fixtures__", basename)]);
-  await zp(...args);
-  await exec("cd", [cwd]);
+async function cwd(newCwd) {
+  newCwd = path.join(process.cwd(), newCwd);
+  const oldCwd = process.cwd();
+  const oldCwdFn = process.cwd;
+  const newCwdFn = () => newCwd;
+  process.cwd = newCwdFn;
+  await exec("cd", [newCwd]);
+  return async () => {
+    await exec("cd", [oldCwd]);
+    process.cwd = oldCwdFn;
+  };
 }
 
-module.exports = { zeropack };
+module.exports = { cwd };

@@ -1,5 +1,9 @@
-const { zeropack } = require("./__utils__");
+const { zeropack } = require("..");
+const { cwd } = require("./__utils__");
 
 test("default", async () => {
-  // await zeropack();
+  const restore = await cwd("__tests__/__fixtures__/defaults");
+  console.log(process.cwd());
+  await restore();
+  console.log(process.cwd());
 });
