@@ -6,7 +6,6 @@ const path = require("path");
 const uppercamelcase = require("uppercamelcase");
 const webpack = require("webpack");
 const webpackNodeExternals = require("webpack-node-externals");
-const yargs = require("yargs").argv;
 
 async function cwdPath(...parts) {
   const possiblePath = path.join(process.cwd(), ...parts);
@@ -23,13 +22,17 @@ async function cwdRequireJson(file) {
   return file ? JSON.parse(await fs.readFile(file)) : null;
 }
 
-(async function() {
-  const pkg = (await cwdRequireJson("package.json")) || {};
-  const opt = {
+async function getPkg() {
+  return (await cwdRequireJson("package.json")) || {};
+}
+
+async function getOptions(overrides) {
+  const pkg = await getPkg();
+  return {
     ...{
       entry: "./src/index.js",
       externals: webpackNodeExternals(),
-      mode: yargs.mode || "production",
+      mode: "production",
       module: {
         rules: [{ test: /\.js$/, use: "babel-loader" }]
       },
@@ -42,32 +45,50 @@ async function cwdRequireJson(file) {
     },
     ...pkg.zeropack,
     ...(await cwdRequireJson(".zeropackrc")),
-    ...(await cwdRequire("zeropack.js"))
+    ...(await cwdRequire("zeropack.js")),
+    ...overrides
   };
+}
+
+function errorOrContinue(yup, nup) {
+  return (error, stats) => {
+    if (error) {
+      nup(error);
+      return;
+    } else if (stats.hasErrors() || stats.hasWarnings()) {
+      const info = stats.toJson();
+      nup(console.warn(info.warnings) + console.error(info.errors));
+      return;
+    } else {
+      yup(stats);
+    }
+  };
+}
+
+async function zeropack(optOverrides) {
+  const pkg = await getPkg();
+  const opt = await getOptions(optOverrides);
 
   // Cleanup any previous runs.
   await fs.remove(opt.output.path);
 
-  webpack(opt, (error, stats) => {
-    if (error) {
-      console.error(error.stack || error);
-      console.error(error.details);
-      return;
-    } else if (stats.hasErrors() || stats.hasWarnings()) {
-      const info = stats.toJson();
-      console.warn(info.warnings);
-      console.error(info.errors);
-      return;
-    }
-
-    // If using Flow, copy entry source files ot the output directory.
-    if (pkg.devDependencies && pkg.devDependencies["flow-bin"]) {
-      const sources = Array.isArray(opt.entry)
-        ? Object.values(opt.entry)
-        : [opt.entry];
-      flowCopySource(sources.map(path.dirname), opt.output.path, {
-        ignore: "**/__tests__/**"
-      });
-    }
+  return new Promise((yup, nup) => {
+    webpack(
+      opt,
+      errorOrContinue(nup, () => {
+        // If using Flow, copy entry source files ot the output directory.
+        if (pkg.devDependencies && pkg.devDependencies["flow-bin"]) {
+          const sources = Array.isArray(opt.entry)
+            ? Object.values(opt.entry)
+            : [opt.entry];
+          flowCopySource(sources.map(path.dirname), opt.output.path, {
+            ignore: "**/__tests__/**"
+          });
+        }
+        yup();
+      })
+    );
   });
-})();
+}
+
+module.exports = { zeropack };
