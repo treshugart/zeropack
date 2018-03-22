@@ -69,3 +69,44 @@ Attempts to infer by taking the `dirname` of the `main` field in your `package.j
 ## Flow
 
 If `flow-bin` is detected as a `devDependency`, then it will automatically use `flow-copy-source` from the `dirname` of your `entry` to the `output.path`.
+
+## API
+
+If you want, you can use `zeropack` via the programmatic API.
+
+### `zeropack`
+
+The API form of the CLI utility.
+
+```js
+const { zeropack } = require("zeropack");
+
+(async function() {
+  // Same thing as running `$ zeropack`.
+  await zeropack();
+})();
+```
+
+### `getConfig`
+
+Returns the inferred configuration from all sources.
+
+```js
+const { getConfig } = require("zeropack");
+
+console.log(getConfig());
+
+// { entry: ... }
+```
+
+### `getDefaultConfig`
+
+Similar to `getConfig`, the `getDefaultConfig` function returns only the inferred defaults, without merging other configration sources such as the `.zeropackrc` file.
+
+```js
+const { getDefaultConfig } = require("zeropack");
+
+console.log(getDefaultConfig());
+
+// { entry: './src/index.js' }
+```
