@@ -22,7 +22,7 @@ But, like Webpack, you can pass some along:
 $ zeropack --mode development
 ```
 
-## Configuration
+## Configuration (lol, psych!)
 
 The goal of this project is to provide the most practical zero-config setup and infer defaults where possible from other parts of your repo, such as your `package.json`. When that is not possible, or you want to customise it, you may do so in a number of ways.
 
