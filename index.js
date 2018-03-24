@@ -1,4 +1,8 @@
 const babel = require("babel-core");
+const babelPresetEnv = require("babel-preset-env");
+const babelPresetFlow = require("babel-preset-flow");
+const babelPresetReact = require("babel-preset-react");
+const babelPresetStage0 = require("babel-preset-stage-0");
 const cosmiconfig = require("cosmiconfig");
 const flowCopySource = require("flow-copy-source");
 const fs = require("fs-extra");
@@ -8,6 +12,12 @@ const sourceTrace = require("source-trace");
 const uppercamelcase = require("uppercamelcase");
 const webpack = require("webpack");
 const webpackNodeExternals = require("webpack-node-externals");
+
+const defaultBabelPresets = [
+  babelPresetFlow,
+  babelPresetReact,
+  babelPresetStage0
+];
 
 async function cwdPath(...parts) {
   const possiblePath = path.join(process.cwd(), ...parts);
@@ -37,7 +47,7 @@ async function getPkg() {
   return {
     ...{
       devDependencies: {},
-      module: "dist/index.js",
+      main: "dist/index.js",
       source: "./src/index.js"
     },
     ...(await cwdRequireJson("package.json"))
@@ -45,7 +55,8 @@ async function getPkg() {
 }
 
 async function getUserBabelOptions() {
-  return (await cosmiconfig("babel").load()).config;
+  const loaded = await cosmiconfig("babel").load();
+  return loaded ? loaded.config : {};
 }
 
 function getOutputPath(file) {
@@ -58,12 +69,13 @@ async function getBabelOptions() {
   const nodeVersion = await getNodeVersion();
   const babelConfig = merge(await getUserBabelOptions(), {
     sourceMaps: true,
+    presets: defaultBabelPresets,
     env: {
       main: {
-        presets: [["env", { targets: { node: nodeVersion } }]]
+        presets: [[babelPresetEnv, { targets: { node: nodeVersion } }]]
       },
       module: {
-        presets: [["env", { modules: false }]]
+        presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
       }
     }
   });
@@ -118,8 +130,9 @@ async function getWebpackOptions(opt) {
   };
   const babelConfig = merge(await getUserBabelOptions(), {
     env: {
+      presets: defaultBabelPresets,
       browser: {
-        presets: ["env"]
+        presets: [babelPresetEnv]
       }
     }
   });
@@ -155,7 +168,6 @@ async function getWebpackOptions(opt) {
 async function buildBabel(opt) {
   return Promise.all(
     opt.map(async o => {
-      process.env.BABEL_ENV = o.env;
       const { entry } = o.webpack;
       const {
         filename: outputFileBasename,
@@ -171,22 +183,23 @@ async function buildBabel(opt) {
           const relativeFileMap = `${relativeFile}.map`;
           const outputFile = path.join(outputPath, relativeFile);
           const outputFileMap = `${outputFile}.map`;
-          return new Promise((yup, nup) => {
-            babel.transformFile(file, o.babel, async (e, r) => {
-              if (e) {
-                nup(e);
-              } else {
-                await Promise.all([
-                  fs.outputFile(
-                    outputFile,
-                    `${r.code}\n\n//# sourceMappingURL=${relativeFileMap}`
-                  ),
-                  fs.outputFile(outputFileMap, JSON.stringify(r.map))
-                ]);
-                yup();
-              }
-            });
-          });
+
+          // We have to do this synchronously so that we can force the
+          // BABEL_ENV. If we don't do this, other transpiles might interfere
+          // by setting the environemnt to something we don't expect here.
+          const oldBabelEnv = process.env.BABEL_ENV;
+          process.env.BABEL_ENV = o.env;
+          const transformed = babel.transformFileSync(file, o.babel);
+          process.env.BABEL_ENV = oldBabelEnv;
+
+          // Write code and map to the output folder.
+          await Promise.all([
+            fs.outputFile(
+              outputFile,
+              `${transformed.code}\n\n//# sourceMappingURL=${relativeFileMap}`
+            ),
+            fs.outputFile(outputFileMap, JSON.stringify(transformed.map))
+          ]);
         })
       );
     })

@@ -1,8 +1,8 @@
 {
   "name": "my-library",
-  "browser": "./dist/browser.js",
-  "main": "./dist/main.js",
-  "module": "./dist/module.js",
+  "browser": "./dist/browser/index.js",
+  "main": "./dist/main/index.js",
+  "module": "./dist/module/index.js",
   "source": "./index.js",
   "devDependencies": {
     "flow-bin": "*"

@@ -1,10 +1,12 @@
 # Zeropack
 
-Practical, zero-config Webpack, until you need it.
+Practical, zero-config Babel + Webpack, until you need it.
 
-* Node / ES2015 transpilation.
+* Node (CommonJS) / ESM (ES2015 modules) builds.
 * Webpack bundles for browsers and apps.
-* Flowtypes are automatically output if it's being used.
+* Automatic copying of Flowtyped sources, if used.
+* Out of the box support for Flow, React and Stage-0 features.
+* Full source map support.
 
 ## Installing
 
@@ -35,7 +37,7 @@ Separated builds happen when your entry point is traced, and each file in your p
 
 Main fields that output a separated build:
 
-* `main` - Node. Babel config defaults to `{ ["env", "targets": { "node": /* value of .nvmrc or "current" */ }] }`
+* `main` - Node. Babel config defaults to `{ ["env", "targets": { "node": nvmrc || "current" }] }`
 * `module` - ES2015 modules. Babel config defaults to `{ "presets": ["env", { "modules": false }] }`.
 
 As an example, consider the following structure:
@@ -76,6 +78,7 @@ All builds share the following similarities:
 * `BABEL_ENV` is always set to the "main" field that triggered the build (i.e. `module`). This allows you to customise your babel configuration on a per-build basis using the `env` option, if necessary.
 * If you have `flow-bin` specified as a `devDependency`, each file that is emitted gets a corresponding `.js.flow` file for it.
 * Source maps are automatically output for every file that gets emitted.
+* No builds are currently minified as this is usually done on the consumer's end via their build tooling.
 
 ## Custom configuration
 
@@ -84,3 +87,10 @@ The following are options that you can use as custom configuration in the `packa
 ### `source`
 
 Specifies the entry point for all builds. This defaults to `./src/index.js`.
+
+## Todo
+
+* [ ] Use the consumers Babel / Webpack versions.
+* [ ] Better customisation of Babel / Webpack settings.
+* [ ] Pretty stats.
+* [ ] Animated loader.

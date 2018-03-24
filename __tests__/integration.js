@@ -8,13 +8,25 @@ test("defaults", async () => {
 
 test("custom", async () => {
   await run("custom");
-  expect(await read("dist/browser.js")).toMatchSnapshot();
-  expect(await read("dist/browser.js.flow")).toMatchSnapshot();
-  expect(await read("dist/browser.js.map")).toMatchSnapshot();
-  expect(await read("dist/main.js")).toMatchSnapshot();
-  expect(await read("dist/main.js.flow")).toMatchSnapshot();
-  expect(await read("dist/main.js.map")).toMatchSnapshot();
-  expect(await read("dist/module.js")).toMatchSnapshot();
-  expect(await read("dist/module.js.flow")).toMatchSnapshot();
-  expect(await read("dist/module.js.map")).toMatchSnapshot();
+
+  expect(await read("dist/browser/index.js")).toMatchSnapshot();
+  expect(await read("dist/browser/index.js.flow")).toMatchSnapshot();
+  expect(await read("dist/browser/index.js.map")).toMatchSnapshot();
+  expect(
+    await read("dist/browser/index.anotherfile.js.flow")
+  ).toMatchSnapshot();
+
+  expect(await read("dist/main/index.js")).toMatchSnapshot();
+  expect(await read("dist/main/index.js.flow")).toMatchSnapshot();
+  expect(await read("dist/main/index.js.map")).toMatchSnapshot();
+  expect(await read("dist/main/index.anotherfile.js")).toMatchSnapshot();
+  expect(await read("dist/main/index.anotherfile.js.flow")).toMatchSnapshot();
+  expect(await read("dist/main/index.anotherfile.js.map")).toMatchSnapshot();
+
+  expect(await read("dist/module/index.js")).toMatchSnapshot();
+  expect(await read("dist/module/index.js.flow")).toMatchSnapshot();
+  expect(await read("dist/module/index.js.map")).toMatchSnapshot();
+  expect(await read("dist/module/index.anotherfile.js")).toMatchSnapshot();
+  expect(await read("dist/module/index.anotherfile.js.flow")).toMatchSnapshot();
+  expect(await read("dist/module/index.anotherfile.js.map")).toMatchSnapshot();
 });
