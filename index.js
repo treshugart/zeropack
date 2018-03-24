@@ -1,6 +1,8 @@
 const babel = require("babel-core");
+const cosmiconfig = require("cosmiconfig");
 const flowCopySource = require("flow-copy-source");
 const fs = require("fs-extra");
+const merge = require("lodash/merge");
 const path = require("path");
 const sourceTrace = require("source-trace");
 const uppercamelcase = require("uppercamelcase");
@@ -24,7 +26,10 @@ async function cwdRequireJson(file) {
 
 async function getNodeVersion() {
   return (await fs.exists(".nvmrc"))
-    ? (await fs.readFile(".nvmrc")).toString("utf8").trim()
+    ? (await fs.readFile(".nvmrc"))
+        .toString("utf8")
+        .trim()
+        .replace("v", "")
     : "current";
 }
 
@@ -39,6 +44,10 @@ async function getPkg() {
   };
 }
 
+async function getUserBabelOptions() {
+  return (await cosmiconfig("babel").load()).config;
+}
+
 function getOutputPath(file) {
   const dirname = path.dirname(file);
   return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
@@ -47,21 +56,22 @@ function getOutputPath(file) {
 async function getBabelOptions() {
   const pkg = await getPkg();
   const nodeVersion = await getNodeVersion();
-  return ["main", "module"].filter(field => field in pkg).map(async field => {
+  const babelConfig = merge(await getUserBabelOptions(), {
+    sourceMaps: true,
+    env: {
+      main: {
+        presets: [["env", { targets: { node: nodeVersion } }]]
+      },
+      module: {
+        presets: [["env", { modules: false }]]
+      }
+    }
+  });
+  return ["main", "module"].filter(field => field in pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
-      babel: {
-        sourceMaps: true,
-        env: {
-          main: {
-            presets: [["env", { targets: { node: nodeVersion } }]]
-          },
-          module: {
-            presets: [["env", { modules: false }]]
-          }
-        }
-      },
+      babel: babelConfig,
       webpack: {
         entry: pkg.source,
         output: {
@@ -106,6 +116,13 @@ async function getWebpackOptions(opt) {
     library: uppercamelcase(pkg.name || ""),
     libraryTarget: "umd"
   };
+  const babelConfig = merge(await getUserBabelOptions(), {
+    env: {
+      browser: {
+        presets: ["env"]
+      }
+    }
+  });
   return ["browser"].filter(field => field in pkg).map(field => {
     const pkgField = pkg[field];
     return {
@@ -118,13 +135,7 @@ async function getWebpackOptions(opt) {
               use: [
                 {
                   loader: "babel-loader",
-                  options: {
-                    env: {
-                      browser: {
-                        presets: ["env"]
-                      }
-                    }
-                  }
+                  options: babelConfig
                 }
               ]
             }
@@ -245,9 +256,9 @@ async function clean() {
 async function zeropack(opt = {}) {
   return Promise.all([
     await clean(),
-    await buildBabel(await getBabelOptions(opt)),
-    await buildWebpack(await getWebpackOptions(opt)),
-    await buildFlow(await getFlowOptions(opt))
+    await buildBabel(await getBabelOptions(opt))
+    // await buildWebpack(await getWebpackOptions(opt)),
+    // await buildFlow(await getFlowOptions(opt))
   ]);
 }
 
