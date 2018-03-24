@@ -256,9 +256,9 @@ async function clean() {
 async function zeropack(opt = {}) {
   return Promise.all([
     await clean(),
-    await buildBabel(await getBabelOptions(opt))
-    // await buildWebpack(await getWebpackOptions(opt)),
-    // await buildFlow(await getFlowOptions(opt))
+    await buildBabel(await getBabelOptions(opt)),
+    await buildWebpack(await getWebpackOptions(opt)),
+    await buildFlow(await getFlowOptions(opt))
   ]);
 }
 
