@@ -1,6 +1,10 @@
-# zeropack
+# Zeropack
 
 Practical, zero-config Webpack, until you need it.
+
+* Node / ES2015 transpilation.
+* Webpack bundles for browsers and apps.
+* Flowtypes are automatically output if it's being used.
 
 ## Installing
 
@@ -10,103 +14,73 @@ npm i -D zeropack
 
 ## Usage
 
-Generally you'll use it without any arguments.
-
 ```sh
 $ zeropack
 ```
 
-But, like Webpack, you can pass some along:
+## Types of builds
 
-```sh
-$ zeropack --mode development
+The goal of this project is to provide the most practical zero-config setup and infer defaults where possible from other parts of your project, such as your `package.json`. As we all know, even projects that offer zero configuration up front still need to be configurable to some extent, so being flexible is also a priority, though secondary.
+
+As already stated, everything revolves around inferring information from your existing setup as much as possible. Most of this can be done by looking at existing conventions for "main" fields in your `package.json`. Fields such as `browser`, `main` and `module` are already highly conventionalised and give meaning to your project and, thus, also to your build, giving us a lot to work with.
+
+There's two main types of builds:
+
+1.  Separated
+2.  Bundled
+
+### Separated
+
+Separated builds happen when your entry point is traced, and each file in your project is pushed through Babel and emitted in the output directory as they appear relative to their source directory.
+
+Main fields that output a separated build:
+
+* `main` - Node. Babel config defaults to `{ ["env", "targets": { "node": /* value of .nvmrc or "current" */ }] }`
+* `module` - ES2015 modules. Babel config defaults to `{ "presets": ["env", { "modules": false }] }`.
+
+As an example, consider the following structure:
+
+```
+- src
+  - index.js
+  - some
+    - file.js
 ```
 
-## Configuration (lol, psych!)
+If you set your main field as `dist/main.js`, it would output:
 
-The goal of this project is to provide the most practical zero-config setup and infer defaults where possible from other parts of your repo, such as your `package.json`. When that is not possible, or you want to customise it, you may do so in a number of ways.
-
-Each configuration exported by a `zeropack` entry in the `package.json`, `zeropack.js` or `.zeropackrc` will be merged with the default configuration. You may specify none or all of the aforementioned configuration methods and they will be merged in that order, overriding the defaults.
-
-### `entry`
-
-Defaults to `./src/index.js`.
-
-### `externals`
-
-Uses `webpack-node-externals` to infer your externals.
-
-### `mode`
-
-Defaults to `"production"` but you can pass `--mode` or override in your configuration.
-
-### `module`
-
-Defaults to:
-
-```js
-{
-  rules: [{ test: /\.js$/, use: "babel-loader" }];
-}
+```
+- dist
+  - main.js
+  - some
+    - file.js
 ```
 
-### `output.filename`
+Notice that `index.js` was renamed to `main.js`. This is because the `source` (see later in "Custom configuration") has been specified as `src/index.js` (this is the default), but the main was `dist/main.js`. This means that your entry point is renamed prior to emitting, if it is different from the source.
 
-Attempts to infer the filename by taking the `basename` of the `main` field in your `package.json`. For example, a `main` of `src/index.js` would become `index.js`. If it cannot infer this, it defaults to `index.js`.
+You can even specify mains deeper than a single level. For example, `dist/main/index.js` would work just fine.
 
-### `output.library`
+### Bundled
 
-Attempts to infer by `PascalCasing` the `name` field in your `package.json`. If it cannot infer the name, then it passes `undefined`.
+Bundled builds are passed through Webpack and use `babel-loader` by default for all `.js` or `.jsx` files.
 
-### `output.libraryTarget`
+Main fields that output a bundled build:
 
-Defaults to `umd`.
+* `browser` - Your entire project is bundled up so that it can be consumed by a browser. Babel config defaults to `{ "presets": ["env"] }`.
 
-### `output.path`
+### Similarities between builds
 
-Attempts to infer by taking the `dirname` of the `main` field in your `package.json`. For example, a `main` of `src/index.js` would become `src`, but converted to an absolute path. If it cannot infer this, it defaults to `dist`.
+All builds share the following similarities:
 
-## Flow
+* Babel is used for transpilation.
+* `BABEL_ENV` is always set to the "main" field that triggered the build (i.e. `module`). This allows you to customise your babel configuration on a per-build basis using the `env` option, if necessary.
+* If you have `flow-bin` specified as a `devDependency`, each file that is emitted gets a corresponding `.js.flow` file for it.
+* Source maps are automatically output for every file that gets emitted.
 
-If `flow-bin` is detected as a `devDependency`, then it will automatically use `flow-copy-source` from the `dirname` of your `entry` to the `output.path`.
+## Custom configuration
 
-## API
+The following are options that you can use as custom configuration in the `package.json`.
 
-If you want, you can use `zeropack` via the programmatic API.
+### `source`
 
-### `zeropack`
-
-The API form of the CLI utility.
-
-```js
-const { zeropack } = require("zeropack");
-
-(async function() {
-  // Same thing as running `$ zeropack`.
-  await zeropack();
-})();
-```
-
-### `getConfig`
-
-Returns the inferred configuration from all sources.
-
-```js
-const { getConfig } = require("zeropack");
-
-console.log(getConfig());
-
-// { entry: ... }
-```
-
-### `getDefaultConfig`
-
-Similar to `getConfig`, the `getDefaultConfig` function returns only the inferred defaults, without merging other configration sources such as the `.zeropackrc` file.
-
-```js
-const { getDefaultConfig } = require("zeropack");
-
-console.log(getDefaultConfig());
-
-// { entry: './src/index.js' }
-```
+Specifies the entry point for all builds. This defaults to `./src/index.js`.

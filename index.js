@@ -22,6 +22,12 @@ async function cwdRequireJson(file) {
   return file ? JSON.parse(await fs.readFile(file)) : null;
 }
 
+async function getNodeVersion() {
+  return (await fs.exists(".nvmrc"))
+    ? (await fs.readFile(".nvmrc")).toString("utf8").trim()
+    : "current";
+}
+
 async function getPkg() {
   return {
     ...{
@@ -40,12 +46,21 @@ function getOutputPath(file) {
 
 async function getBabelOptions() {
   const pkg = await getPkg();
-  return ["module"].filter(field => field in pkg).map(field => {
+  const nodeVersion = await getNodeVersion();
+  return ["main", "module"].filter(field => field in pkg).map(async field => {
     const pkgField = pkg[field];
     return {
       env: field,
       babel: {
-        sourceMaps: true
+        sourceMaps: true,
+        env: {
+          main: {
+            presets: [["env", { targets: { node: nodeVersion } }]]
+          },
+          module: {
+            presets: [["env", { modules: false }]]
+          }
+        }
       },
       webpack: {
         entry: pkg.source,
@@ -91,8 +106,7 @@ async function getWebpackOptions(opt) {
     library: uppercamelcase(pkg.name || ""),
     libraryTarget: "umd"
   };
-
-  return ["browser", "main"].filter(field => field in pkg).map(field => {
+  return ["browser"].filter(field => field in pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
@@ -100,11 +114,17 @@ async function getWebpackOptions(opt) {
         module: {
           rules: [
             {
-              test: /\.js$/,
+              test: /\.jsx?$/,
               use: [
                 {
                   loader: "babel-loader",
-                  options: { env: field }
+                  options: {
+                    env: {
+                      browser: {
+                        presets: ["env"]
+                      }
+                    }
+                  }
                 }
               ]
             }
