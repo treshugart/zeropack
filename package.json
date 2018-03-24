@@ -28,7 +28,7 @@
     "jest": "^22.4.3",
     "prettier": "^1.11.1"
   },
-  "version": "0.1.4",
+  "version": "0.2.0",
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
