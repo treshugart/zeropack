@@ -3,9 +3,7 @@
   "browser": "./dist/browser.js",
   "main": "./dist/main.js",
   "module": "./dist/module.js",
-  "zeropack": {
-    "entry": "./index.js"
-  },
+  "source": "./index.js",
   "devDependencies": {
     "flow-bin": "*"
   }
