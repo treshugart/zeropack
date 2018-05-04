@@ -24,16 +24,6 @@ async function cwdPath(...parts) {
   return (await fs.exists(possiblePath)) ? possiblePath : null;
 }
 
-async function cwdRequire(file) {
-  file = await cwdPath(file);
-  return file ? require(file) : null;
-}
-
-async function cwdRequireJson(file) {
-  file = await cwdPath(file);
-  return file ? JSON.parse(await fs.readFile(file)) : null;
-}
-
 async function getNodeVersion() {
   return (await fs.exists(".nvmrc"))
     ? (await fs.readFile(".nvmrc"))
@@ -41,17 +31,6 @@ async function getNodeVersion() {
         .trim()
         .replace("v", "")
     : "current";
-}
-
-async function getPkg() {
-  return {
-    ...{
-      devDependencies: {},
-      main: "dist/index.js",
-      source: "./src/index.js"
-    },
-    ...(await cwdRequireJson("package.json"))
-  };
 }
 
 async function getUserBabelOptions() {
@@ -64,8 +43,7 @@ function getOutputPath(file) {
   return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
 }
 
-async function getBabelOptions() {
-  const pkg = await getPkg();
+async function getBabelOptions(pkg) {
   const nodeVersion = await getNodeVersion();
   const babelConfig = merge(await getUserBabelOptions(), {
     sourceMaps: true,
@@ -95,8 +73,7 @@ async function getBabelOptions() {
   });
 }
 
-async function getFlowOptions() {
-  const pkg = await getPkg();
+async function getFlowOptions(pkg) {
   if (!pkg.devDependencies["flow-bin"]) {
     return [];
   }
@@ -116,13 +93,12 @@ async function getFlowOptions() {
     });
 }
 
-async function getWebpackOptions(opt) {
-  const pkg = await getPkg();
+async function getWebpackOptions(pkg) {
   const options = {
     devtool: "source-map",
     entry: pkg.source,
     externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
-    mode: opt.mode || "development"
+    mode: pkg.mode || "development"
   };
   const optionsOutput = {
     library: uppercamelcase(pkg.name || ""),
@@ -165,7 +141,8 @@ async function getWebpackOptions(opt) {
   });
 }
 
-async function buildBabel(opt) {
+async function buildBabel(pkg) {
+  const opt = await getBabelOptions(pkg);
   return Promise.all(
     opt.map(async o => {
       const { entry } = o.webpack;
@@ -206,8 +183,8 @@ async function buildBabel(opt) {
   );
 }
 
-async function buildFlow(opt) {
-  const pkg = await getPkg();
+async function buildFlow(pkg) {
+  const opt = await getFlowOptions(pkg);
   return Promise.all(
     opt.map(async o => {
       const { entry } = o.webpack;
@@ -230,7 +207,8 @@ async function buildFlow(opt) {
   );
 }
 
-async function buildWebpack(opt) {
+async function buildWebpack(pkg) {
+  const opt = getWebpackOptions(pkg);
   return Promise.all(
     opt.map(o => {
       process.env.BABEL_ENV = o.env;
@@ -254,8 +232,7 @@ async function buildWebpack(opt) {
   );
 }
 
-async function clean() {
-  const pkg = await getPkg();
+async function clean(pkg) {
   return Promise.all(
     ["browser", "main", "module"]
       .map(field => pkg[field])
@@ -266,13 +243,23 @@ async function clean() {
   );
 }
 
-async function zeropack(opt = {}) {
+async function zeropack(pkg) {
+  pkg = {
+    ...{
+      devDependencies: {},
+      main: "dist/index.js",
+      source: "./src/index.js"
+    },
+    ...pkg
+  };
   return Promise.all([
-    await clean(),
-    await buildBabel(await getBabelOptions(opt)),
-    await buildWebpack(await getWebpackOptions(opt)),
-    await buildFlow(await getFlowOptions(opt))
+    await clean(pkg),
+    await buildBabel(pkg),
+    await buildWebpack(pkg),
+    await buildFlow(pkg)
   ]);
 }
 
-module.exports = { getWebpackOptions, zeropack };
+module.exports = {
+  zeropack
+};
