@@ -8,6 +8,7 @@
   "author": "Trey Shugart <treshugart@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "babel-core": "^6.26.3",
     "babel-loader": "^7.1.4",
     "babel-preset-env": "^1.6.1",
     "babel-preset-flow": "^6.23.0",

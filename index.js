@@ -97,8 +97,8 @@ async function getWebpackOptions(pkg) {
   const options = {
     devtool: "source-map",
     entry: pkg.source,
-    externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
-    mode: pkg.mode || "development"
+    externals: pkg.externals,
+    mode: pkg.mode
   };
   const optionsOutput = {
     library: uppercamelcase(pkg.name || ""),
@@ -247,7 +247,9 @@ async function zeropack(pkg) {
   pkg = {
     ...{
       devDependencies: {},
+      externals: await cwdPath("node_modules")) ? webpackNodeExternals() : [],
       main: "dist/index.js",
+      mode: "development",
       source: "./src/index.js"
     },
     ...pkg
