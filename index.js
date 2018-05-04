@@ -247,7 +247,7 @@ async function zeropack(pkg) {
   pkg = {
     ...{
       devDependencies: {},
-      externals: await cwdPath("node_modules")) ? webpackNodeExternals() : [],
+      externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
       main: "dist/index.js",
       mode: "development",
       source: "./src/index.js"
