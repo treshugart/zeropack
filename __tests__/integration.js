@@ -1,5 +1,7 @@
 const { read, run } = require("./__utils__");
 
+jest.setTimeout(25000);
+
 test("defaults", async () => {
   await run("defaults");
   expect(await read("dist/index.js")).toMatchSnapshot();

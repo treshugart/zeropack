@@ -6,9 +6,9 @@ const yargs = require("yargs");
 const { zeropack } = require(".");
 
 (async function() {
-  const { _, $0, help, version, watch, ...args } = yargs.argv;
-  const pkg = await readPkgUp();
-  const opts = { ...pkg, ...args };
+  const { _, $0, help, pkg, version, watch, ...args } = yargs.argv;
+  const rpkg = pkg ? JSON.parse(pkg) : (await readPkgUp()).pkg;
+  const opts = { ...rpkg, ...args };
   if (watch) {
     nodeWatch(".", { recursive: true }, async () => await zeropack(opts));
   } else {

@@ -208,7 +208,7 @@ async function buildFlow(pkg) {
 }
 
 async function buildWebpack(pkg) {
-  const opt = getWebpackOptions(pkg);
+  const opt = await getWebpackOptions(pkg);
   return Promise.all(
     opt.map(o => {
       process.env.BABEL_ENV = o.env;
