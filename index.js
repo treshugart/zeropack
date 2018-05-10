@@ -43,6 +43,10 @@ function getOutputPath(file) {
   return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
 }
 
+function filterMains(mains, pkg) {
+  return mains.filter(field => field in pkg && pkg.mains.indexOf(field) > -1);
+}
+
 async function getBabelOptions(pkg) {
   const nodeVersion = await getNodeVersion();
   const babelConfig = merge(await getUserBabelOptions(), {
@@ -57,7 +61,7 @@ async function getBabelOptions(pkg) {
       }
     }
   });
-  return ["main", "module"].filter(field => field in pkg).map(field => {
+  return filterMains(["main", "module"], pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
@@ -77,20 +81,18 @@ async function getFlowOptions(pkg) {
   if (!pkg.devDependencies["flow-bin"]) {
     return [];
   }
-  return ["browser", "main", "module"]
-    .filter(field => field in pkg)
-    .map(field => {
-      const pkgField = pkg[field];
-      return {
-        webpack: {
-          entry: pkg.source,
-          output: {
-            filename: path.basename(pkgField),
-            path: getOutputPath(pkgField)
-          }
+  return filterMains(["browser", "main", "module"], pkg).map(field => {
+    const pkgField = pkg[field];
+    return {
+      webpack: {
+        entry: pkg.source,
+        output: {
+          filename: path.basename(pkgField),
+          path: getOutputPath(pkgField)
         }
-      };
-    });
+      }
+    };
+  });
 }
 
 async function getWebpackOptions(pkg) {
@@ -112,7 +114,7 @@ async function getWebpackOptions(pkg) {
       }
     }
   });
-  return ["browser"].filter(field => field in pkg).map(field => {
+  return filterMains(["browser"], pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
@@ -234,8 +236,7 @@ async function buildWebpack(pkg) {
 
 async function clean(pkg) {
   return Promise.all(
-    ["browser", "main", "module"]
-      .map(field => pkg[field])
+    filterMains(["browser", "main", "module"], pkg)
       .filter(Boolean)
       .map(fieldPath => getOutputPath(fieldPath))
       .filter((field, index, array) => array.indexOf(field) === index)
@@ -249,6 +250,7 @@ async function zeropack(pkg) {
       devDependencies: {},
       externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
       main: "dist/index.js",
+      mains: ["browser", "main", "module"],
       mode: "development",
       source: "./src/index.js"
     },
