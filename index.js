@@ -11,6 +11,7 @@ const path = require("path");
 const sourceTrace = require("source-trace");
 const uppercamelcase = require("uppercamelcase");
 const webpack = require("webpack");
+const WebpackEmitAllPlugin = require("webpack-emit-all-plugin");
 const webpackNodeExternals = require("webpack-node-externals");
 
 const defaultBabelPresets = [
@@ -44,37 +45,9 @@ function getOutputPath(file) {
 }
 
 function filterMains(mains, pkg) {
-  return mains.filter(field => field in pkg && pkg.mains.indexOf(field) > -1);
-}
-
-async function getBabelOptions(pkg) {
-  const nodeVersion = await getNodeVersion();
-  const babelConfig = merge(await getUserBabelOptions(), {
-    sourceMaps: true,
-    presets: defaultBabelPresets,
-    env: {
-      main: {
-        presets: [[babelPresetEnv, { targets: { node: nodeVersion } }]]
-      },
-      module: {
-        presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
-      }
-    }
-  });
-  return filterMains(["main", "module"], pkg).map(field => {
-    const pkgField = pkg[field];
-    return {
-      env: field,
-      babel: babelConfig,
-      webpack: {
-        entry: pkg.source,
-        output: {
-          filename: path.basename(pkgField),
-          path: getOutputPath(pkgField)
-        }
-      }
-    };
-  });
+  return mains.filter(
+    field => field in pkg && pkg.zeropack.mains.indexOf(field) > -1
+  );
 }
 
 async function getFlowOptions(pkg) {
@@ -85,7 +58,7 @@ async function getFlowOptions(pkg) {
     const pkgField = pkg[field];
     return {
       webpack: {
-        entry: pkg.source,
+        entry: pkg.zeropack.src,
         output: {
           filename: path.basename(pkgField),
           path: getOutputPath(pkgField)
@@ -96,46 +69,62 @@ async function getFlowOptions(pkg) {
 }
 
 async function getWebpackOptions(pkg) {
-  const options = {
-    devtool: "source-map",
-    entry: pkg.source,
-    externals: pkg.externals,
-    mode: pkg.mode
-  };
-  const optionsOutput = {
-    library: uppercamelcase(pkg.name || ""),
-    libraryTarget: "umd"
-  };
-  const babelConfig = merge(await getUserBabelOptions(), {
-    env: {
+  const {
+    env: userBabelOptionsEnv,
+    userBabelOptions
+  } = await getUserBabelOptions();
+  const babelConfig = merge(
+    {
       presets: defaultBabelPresets,
+      sourceMaps: true
+    },
+    userBabelOptions
+  );
+  const babelConfigEnv = merge(
+    {
       browser: {
         presets: [babelPresetEnv]
+      },
+      main: {
+        presets: [[babelPresetEnv, { targets: { node: nodeVersion } }]]
+      },
+      module: {
+        presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
       }
-    }
-  });
-  return filterMains(["browser"], pkg).map(field => {
+    },
+    userBabelOptionsEnv
+  );
+  return filterMains(["browser", "main", "module"], pkg).map(field => {
     const pkgField = pkg[field];
+    const options = {
+      devtool: "source-map",
+      entry: pkg.zeropack.src,
+      externals: pkg.zeropack.externals,
+      mode: pkg.zeropack.mode,
+      module: {
+        rules: [
+          {
+            test: /\.jsx?$/,
+            use: [
+              {
+                loader: "babel-loader",
+                options: merge(babelConfig, babelConfigEnv[field])
+              }
+            ]
+          }
+        ]
+      },
+      output: {
+        library: zeropack.name,
+        libraryTarget: "umd"
+      }
+    };
     return {
       env: field,
       webpack: {
-        module: {
-          rules: [
-            {
-              test: /\.jsx?$/,
-              use: [
-                {
-                  loader: "babel-loader",
-                  options: babelConfig
-                }
-              ]
-            }
-          ]
-        },
         output: {
           filename: path.basename(pkgField),
-          path: getOutputPath(pkgField),
-          ...optionsOutput
+          path: getOutputPath(pkgField)
         },
         ...options
       }
@@ -143,50 +132,53 @@ async function getWebpackOptions(pkg) {
   });
 }
 
-async function buildBabel(pkg) {
-  const opt = await getBabelOptions(pkg);
-  return Promise.all(
-    opt.map(async o => {
-      const { entry } = o.webpack;
-      const {
-        filename: outputFileBasename,
-        path: outputPath
-      } = o.webpack.output;
-      const entryResolved = path.resolve(entry);
-      return Promise.all(
-        await sourceTrace(entry).map(async file => {
-          const relativeFile =
-            file === entryResolved
-              ? outputFileBasename
-              : path.relative(path.dirname(entryResolved), file);
-          const relativeFileMap = `${relativeFile}.map`;
-          const outputFile = path.join(outputPath, relativeFile);
-          const outputFileMap = `${outputFile}.map`;
-
-          // We have to do this synchronously so that we can force the
-          // BABEL_ENV. If we don't do this, other transpiles might interfere
-          // by setting the environemnt to something we don't expect here.
-          const oldBabelEnv = process.env.BABEL_ENV;
-          process.env.BABEL_ENV = o.env;
-          const transformed = babel.transformFileSync(file, o.babel);
-          process.env.BABEL_ENV = oldBabelEnv;
-
-          // Write code and map to the output folder.
-          await Promise.all([
-            fs.outputFile(
-              outputFile,
-              `${transformed.code}\n\n//# sourceMappingURL=${relativeFileMap}`
-            ),
-            fs.outputFile(outputFileMap, JSON.stringify(transformed.map))
-          ]);
-        })
-      );
+async function buildBabel(opt) {
+  return buildWebpack(
+    merge(opt, {
+      plugins: [new WebpackEmitAllPlugin()]
     })
   );
+  // return Promise.all(
+  //   opt.map(async o => {
+  //     const { entry } = o.webpack;
+  //     const {
+  //       filename: outputFileBasename,
+  //       path: outputPath
+  //     } = o.webpack.output;
+  //     const entryResolved = path.resolve(entry);
+  //     return Promise.all(
+  //       await sourceTrace(entry).map(async file => {
+  //         const relativeFile =
+  //           file === entryResolved
+  //             ? outputFileBasename
+  //             : path.relative(path.dirname(entryResolved), file);
+  //         const relativeFileMap = `${relativeFile}.map`;
+  //         const outputFile = path.join(outputPath, relativeFile);
+  //         const outputFileMap = `${outputFile}.map`;
+
+  //         // We have to do this synchronously so that we can force the
+  //         // BABEL_ENV. If we don't do this, other transpiles might interfere
+  //         // by setting the environemnt to something we don't expect here.
+  //         const oldBabelEnv = process.env.BABEL_ENV;
+  //         process.env.BABEL_ENV = o.env;
+  //         const transformed = babel.transformFileSync(file, o.babel);
+  //         process.env.BABEL_ENV = oldBabelEnv;
+
+  //         // Write code and map to the output folder.
+  //         await Promise.all([
+  //           fs.outputFile(
+  //             outputFile,
+  //             `${transformed.code}\n\n//# sourceMappingURL=${relativeFileMap}`
+  //           ),
+  //           fs.outputFile(outputFileMap, JSON.stringify(transformed.map))
+  //         ]);
+  //       })
+  //     );
+  //   })
+  // );
 }
 
-async function buildFlow(pkg) {
-  const opt = await getFlowOptions(pkg);
+async function buildFlow(opt) {
   return Promise.all(
     opt.map(async o => {
       const { entry } = o.webpack;
@@ -209,8 +201,7 @@ async function buildFlow(pkg) {
   );
 }
 
-async function buildWebpack(pkg) {
-  const opt = await getWebpackOptions(pkg);
+async function buildWebpack(opt) {
   return Promise.all(
     opt.map(o => {
       process.env.BABEL_ENV = o.env;
@@ -248,22 +239,29 @@ async function zeropack(pkg) {
   pkg = {
     ...{
       devDependencies: {},
-      externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
-      main: "dist/index.js",
-      mains: ["browser", "main", "module"],
-      mode: "development",
-      source: "./src/index.js"
+      main: pkg.main,
+      zeropack: {
+        externals: (await cwdPath("node_modules"))
+          ? webpackNodeExternals()
+          : [],
+        mains: ["browser", "main", "module"],
+        mode: "development",
+        name: uppercamelcase(pkg.name || ""),
+        src: "./src/index.js"
+      }
     },
     ...pkg
   };
   return Promise.all([
     await clean(pkg),
-    await buildBabel(pkg),
-    await buildWebpack(pkg),
-    await buildFlow(pkg)
+    await buildBabel(getBabelOptions(pkg)),
+    await buildWebpack(getWebpackOptions(pkg)),
+    await buildFlow(getFlowOptions(pkg))
   ]);
 }
 
 module.exports = {
+  getBabelOptions,
+  getWebpackOptions,
   zeropack
 };

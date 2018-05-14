@@ -23,11 +23,13 @@
     "source-trace": "^3.0.1",
     "uppercamelcase": "^3.0.0",
     "webpack": "^4.2.0",
+    "webpack-emit-all-plugin": "^1.0.0",
     "webpack-node-externals": "^1.6.0",
     "yargs": "^11.0.0"
   },
   "bin": "./bin.js",
   "devDependencies": {
+    "flow-bin": "^0.72.0",
     "jest": "^22.4.3",
     "prettier": "^1.11.1"
   },
