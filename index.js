@@ -14,24 +14,23 @@ const webpack = require("webpack");
 const WebpackEmitAllPlugin = require("webpack-emit-all-plugin");
 const webpackNodeExternals = require("webpack-node-externals");
 
+class WebpackNoEmitPlugin {
+  apply(compiler) {
+    compiler.hooks.shouldEmit.tap({ name: "shouldEmit" }, () => false);
+  }
+}
+
 const defaultBabelPresets = [
   babelPresetFlow,
   babelPresetReact,
   babelPresetStage0
 ];
 
-async function cwdPath(...parts) {
+async function readFile(...parts) {
   const possiblePath = path.join(process.cwd(), ...parts);
-  return (await fs.exists(possiblePath)) ? possiblePath : null;
-}
-
-async function getNodeVersion() {
-  return (await fs.exists(".nvmrc"))
-    ? (await fs.readFile(".nvmrc"))
-        .toString("utf8")
-        .trim()
-        .replace("v", "")
-    : "current";
+  return (await fs.exists(possiblePath))
+    ? (await fs.readFile(possiblePath)).toString("utf-8")
+    : null;
 }
 
 async function getUserBabelOptions() {
@@ -50,25 +49,60 @@ function filterMains(mains, pkg) {
   );
 }
 
+async function getDefaultOptions(pkg) {
+  // Set up defaults that don't require calculation.
+  pkg = merge(
+    {
+      devDependencies: {},
+      engines: { node: (await readFile(".nvmrc")) || "current" },
+      main: "./dist/index.js",
+      name: "unknown",
+      zeropack: {
+        devtool: "source-map",
+        mains: ["browser", "main", "module"],
+        mode: "development",
+        src: "./src/index.js"
+      }
+    },
+    pkg
+  );
+  // Merge with defaults that require the uncalculated defaults.
+  return merge(
+    {
+      zeropack: {
+        alias: { [pkg.name]: src },
+        externals: Object.keys({
+          ...pkg.dependencies,
+          ...pkg.devDependencies,
+          ...pkg.optionalDependencies,
+          ...pkg.peerDependencies
+        }),
+        name: uppercamelcase(pkg.name)
+      }
+    },
+    pkg
+  );
+}
+
 async function getFlowOptions(pkg) {
+  pkg = await getDefaultOptions(pkg);
   if (!pkg.devDependencies["flow-bin"]) {
     return [];
   }
   return filterMains(["browser", "main", "module"], pkg).map(field => {
     const pkgField = pkg[field];
     return {
-      webpack: {
-        entry: pkg.zeropack.src,
-        output: {
-          filename: path.basename(pkgField),
-          path: getOutputPath(pkgField)
-        }
+      entry: pkg.zeropack.src,
+      output: {
+        filename: path.basename(pkgField),
+        path: getOutputPath(pkgField)
       }
     };
   });
 }
 
 async function getWebpackOptions(pkg) {
+  pkg = await getDefaultOptions(pkg);
   const {
     env: userBabelOptionsEnv,
     userBabelOptions
@@ -86,7 +120,7 @@ async function getWebpackOptions(pkg) {
         presets: [babelPresetEnv]
       },
       main: {
-        presets: [[babelPresetEnv, { targets: { node: nodeVersion } }]]
+        presets: [[babelPresetEnv, { targets: { node: pkg.engines.node } }]]
       },
       module: {
         presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
@@ -96,9 +130,15 @@ async function getWebpackOptions(pkg) {
   );
   return filterMains(["browser", "main", "module"], pkg).map(field => {
     const pkgField = pkg[field];
-    const options = {
-      devtool: "source-map",
-      entry: pkg.zeropack.src,
+    const shouldEmit = ["main", "module"].indexOf(field) > -1;
+    return {
+      // Setting the context to the source directory ensures that the dirname
+      // is not prepended to the output dir when emitting all files. For
+      // example if your output path is "dist" and your entry is
+      // "./src/index.js", then your output is "./dist/src/index.js".
+      context: path.resolve(path.dirname(pkg.zeropack.src)),
+      devtool: pkg.zeropack.devtool,
+      entry: `./${path.basename(pkg.zeropack.src)}`,
       externals: pkg.zeropack.externals,
       mode: pkg.zeropack.mode,
       module: {
@@ -107,7 +147,7 @@ async function getWebpackOptions(pkg) {
             test: /\.jsx?$/,
             use: [
               {
-                loader: "babel-loader",
+                loader: require.resolve("babel-loader"),
                 options: merge(babelConfig, babelConfigEnv[field])
               }
             ]
@@ -115,77 +155,27 @@ async function getWebpackOptions(pkg) {
         ]
       },
       output: {
+        filename: path.basename(pkgField),
         library: zeropack.name,
-        libraryTarget: "umd"
-      }
-    };
-    return {
-      env: field,
-      webpack: {
-        output: {
-          filename: path.basename(pkgField),
-          path: getOutputPath(pkgField)
-        },
-        ...options
+        libraryTarget: "umd",
+        path: getOutputPath(pkgField)
+      },
+      plugins: shouldEmit
+        ? [new WebpackEmitAllPlugin(), new WebpackNoEmitPlugin()]
+        : [],
+      resolve: {
+        alias: pkg.zeropack.alias
       }
     };
   });
 }
 
-async function buildBabel(opt) {
-  return buildWebpack(
-    merge(opt, {
-      plugins: [new WebpackEmitAllPlugin()]
-    })
-  );
-  // return Promise.all(
-  //   opt.map(async o => {
-  //     const { entry } = o.webpack;
-  //     const {
-  //       filename: outputFileBasename,
-  //       path: outputPath
-  //     } = o.webpack.output;
-  //     const entryResolved = path.resolve(entry);
-  //     return Promise.all(
-  //       await sourceTrace(entry).map(async file => {
-  //         const relativeFile =
-  //           file === entryResolved
-  //             ? outputFileBasename
-  //             : path.relative(path.dirname(entryResolved), file);
-  //         const relativeFileMap = `${relativeFile}.map`;
-  //         const outputFile = path.join(outputPath, relativeFile);
-  //         const outputFileMap = `${outputFile}.map`;
-
-  //         // We have to do this synchronously so that we can force the
-  //         // BABEL_ENV. If we don't do this, other transpiles might interfere
-  //         // by setting the environemnt to something we don't expect here.
-  //         const oldBabelEnv = process.env.BABEL_ENV;
-  //         process.env.BABEL_ENV = o.env;
-  //         const transformed = babel.transformFileSync(file, o.babel);
-  //         process.env.BABEL_ENV = oldBabelEnv;
-
-  //         // Write code and map to the output folder.
-  //         await Promise.all([
-  //           fs.outputFile(
-  //             outputFile,
-  //             `${transformed.code}\n\n//# sourceMappingURL=${relativeFileMap}`
-  //           ),
-  //           fs.outputFile(outputFileMap, JSON.stringify(transformed.map))
-  //         ]);
-  //       })
-  //     );
-  //   })
-  // );
-}
-
-async function buildFlow(opt) {
+async function buildFlow(pkg) {
+  const opt = await getFlowOptions(pkg);
   return Promise.all(
     opt.map(async o => {
-      const { entry } = o.webpack;
-      const {
-        filename: outputFileBasename,
-        path: outputPath
-      } = o.webpack.output;
+      const { entry } = o;
+      const { filename: outputFileBasename, path: outputPath } = o.output;
       const entryResolved = path.resolve(entry);
       return Promise.all(
         await sourceTrace(entry).map(async file => {
@@ -201,31 +191,30 @@ async function buildFlow(opt) {
   );
 }
 
-async function buildWebpack(opt) {
+async function buildWebpack(pkg) {
+  const opt = await getWebpackOptions(pkg);
   return Promise.all(
     opt.map(o => {
-      process.env.BABEL_ENV = o.env;
-      return new Promise((yup, nup) =>
-        webpack(o.webpack, (error, stats) => {
+      return new Promise((yup, nup) => {
+        webpack(o, (error, stats) => {
           if (error) {
             nup(error);
             return;
           } else if (stats.hasErrors() || stats.hasWarnings()) {
             const info = stats.toJson();
-            nup(console.warn(info.warnings) + console.error(info.errors));
+            nup(info.warnings.concat(info.errors).join("\n\n"));
             return;
           } else {
             yup(stats);
           }
-        })
-      ).catch(e => {
-        throw e;
-      });
+        });
+      }).catch(console.error);
     })
   );
 }
 
 async function clean(pkg) {
+  pkg = await getDefaultOptions(pkg);
   return Promise.all(
     filterMains(["browser", "main", "module"], pkg)
       .filter(Boolean)
@@ -236,32 +225,21 @@ async function clean(pkg) {
 }
 
 async function zeropack(pkg) {
-  pkg = {
-    ...{
-      devDependencies: {},
-      main: pkg.main,
-      zeropack: {
-        externals: (await cwdPath("node_modules"))
-          ? webpackNodeExternals()
-          : [],
-        mains: ["browser", "main", "module"],
-        mode: "development",
-        name: uppercamelcase(pkg.name || ""),
-        src: "./src/index.js"
-      }
-    },
-    ...pkg
-  };
   return Promise.all([
     await clean(pkg),
-    await buildBabel(getBabelOptions(pkg)),
-    await buildWebpack(getWebpackOptions(pkg)),
-    await buildFlow(getFlowOptions(pkg))
+    await buildWebpack(pkg),
+    await buildFlow(pkg)
   ]);
 }
 
 module.exports = {
-  getBabelOptions,
+  buildFlow,
+  buildWebpack,
+  clean,
+  getDefaultOptions,
+  getFlowOptions,
+  getOutputPath,
+  getUserBabelOptions,
   getWebpackOptions,
   zeropack
 };
