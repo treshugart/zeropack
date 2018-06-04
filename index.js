@@ -11,14 +11,8 @@ const path = require("path");
 const sourceTrace = require("source-trace");
 const uppercamelcase = require("uppercamelcase");
 const webpack = require("webpack");
-const WebpackEmitAllPlugin = require("webpack-emit-all-plugin");
+const webpackServe = require("webpack-serve");
 const webpackNodeExternals = require("webpack-node-externals");
-
-class WebpackNoEmitPlugin {
-  apply(compiler) {
-    compiler.hooks.shouldEmit.tap({ name: "shouldEmit" }, () => false);
-  }
-}
 
 const defaultBabelPresets = [
   babelPresetFlow,
@@ -33,89 +27,11 @@ async function readFile(...parts) {
     : null;
 }
 
-async function getUserBabelOptions() {
-  const loaded = await cosmiconfig("babel").load();
-  return loaded ? loaded.config : {};
-}
-
-function getOutputPath(file) {
-  const dirname = path.dirname(file);
-  return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
-}
-
-function filterMains(mains, pkg) {
-  return mains.filter(
-    field => field in pkg && pkg.zeropack.mains.indexOf(field) > -1
-  );
-}
-
-async function getDefaultOptions(pkg) {
-  // Set up defaults that don't require calculation.
-  pkg = merge(
-    {
-      devDependencies: {},
-      engines: { node: (await readFile(".nvmrc")) || "current" },
-      main: "./dist/index.js",
-      name: "unknown",
-      zeropack: {
-        devtool: "source-map",
-        mains: ["browser", "main", "module"],
-        mode: "development",
-        src: "./src/index.js"
-      }
-    },
-    pkg
-  );
-  // Merge with defaults that require the uncalculated defaults.
-  return merge(
-    {
-      zeropack: {
-        alias: { [pkg.name]: src },
-        externals: Object.keys({
-          ...pkg.dependencies,
-          ...pkg.devDependencies,
-          ...pkg.optionalDependencies,
-          ...pkg.peerDependencies
-        }),
-        name: uppercamelcase(pkg.name)
-      }
-    },
-    pkg
-  );
-}
-
-async function getFlowOptions(pkg) {
-  pkg = await getDefaultOptions(pkg);
-  if (!pkg.devDependencies["flow-bin"]) {
-    return [];
-  }
-  return filterMains(["browser", "main", "module"], pkg).map(field => {
-    const pkgField = pkg[field];
-    return {
-      entry: pkg.zeropack.src,
-      output: {
-        filename: path.basename(pkgField),
-        path: getOutputPath(pkgField)
-      }
-    };
-  });
-}
-
-async function getWebpackOptions(pkg) {
-  pkg = await getDefaultOptions(pkg);
-  const {
-    env: userBabelOptionsEnv,
-    userBabelOptions
-  } = await getUserBabelOptions();
-  const babelConfig = merge(
-    {
-      presets: defaultBabelPresets,
-      sourceMaps: true
-    },
-    userBabelOptions
-  );
-  const babelConfigEnv = merge(
-    {
+async function getDefaultBabelOptions() {
+  return {
+    presets: defaultBabelPresets,
+    sourceMaps: true,
+    env: {
       browser: {
         presets: [babelPresetEnv]
       },
@@ -125,22 +41,47 @@ async function getWebpackOptions(pkg) {
       module: {
         presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
       }
+    }
+  };
+}
+
+async function getDefaultPkgOptions() {
+  return {
+    devDependencies: {},
+    engines: { node: (await readFile(".nvmrc")) || "current" },
+    main: "./dist/index.js",
+    name: "unknown"
+  };
+}
+
+async function getDefaultZeropackOptions(pkg, type) {
+  const pkgType = pkg[type];
+  if (!pkgType) {
+    return;
+  }
+  return {
+    flow: {
+      entry: "./src/index.js",
+      output: {
+        filename: path.basename(pkgType),
+        path: getOutputPath(pkgType)
+      }
     },
-    userBabelOptionsEnv
-  );
-  return filterMains(["browser", "main", "module"], pkg).map(field => {
-    const pkgField = pkg[field];
-    const shouldEmit = ["main", "module"].indexOf(field) > -1;
-    return {
+    webpack: {
       // Setting the context to the source directory ensures that the dirname
       // is not prepended to the output dir when emitting all files. For
       // example if your output path is "dist" and your entry is
       // "./src/index.js", then your output is "./dist/src/index.js".
-      context: path.resolve(path.dirname(pkg.zeropack.src)),
-      devtool: pkg.zeropack.devtool,
-      entry: `./${path.basename(pkg.zeropack.src)}`,
-      externals: pkg.zeropack.externals,
-      mode: pkg.zeropack.mode,
+      context: path.resolve("./src"),
+      devtool: "source-map",
+      entry: `./src/index.js`,
+      externals: Object.keys({
+        ...pkg.dependencies,
+        ...pkg.devDependencies,
+        ...pkg.optionalDependencies,
+        ...pkg.peerDependencies
+      }),
+      mode: "development",
       module: {
         rules: [
           {
@@ -148,26 +89,38 @@ async function getWebpackOptions(pkg) {
             use: [
               {
                 loader: require.resolve("babel-loader"),
-                options: merge(babelConfig, babelConfigEnv[field])
+                options: merge(babelConfig, babelConfigEnv[type])
               }
             ]
           }
         ]
       },
       output: {
-        filename: path.basename(pkgField),
-        library: zeropack.name,
+        filename: path.basename(pkgType),
+        library: uppercamelcase(pkg.name),
         libraryTarget: "umd",
-        path: getOutputPath(pkgField)
+        path: getOutputPath(pkgType)
       },
-      plugins: shouldEmit
-        ? [new WebpackEmitAllPlugin(), new WebpackNoEmitPlugin()]
-        : [],
       resolve: {
-        alias: pkg.zeropack.alias
+        alias: { [pkg.name]: src }
       }
-    };
-  });
+    }
+  };
+}
+
+async function getUserBabelOptions() {
+  const loaded = await cosmiconfig("babel").load();
+  return loaded ? loaded.config : {};
+}
+
+async function getUserZeropackOptions() {
+  const loaded = await cosmiconfig("zeropack").load();
+  return loaded ? loaded.config : getDefaultZeropackOptions();
+}
+
+function getOutputPath(file) {
+  const dirname = path.dirname(file);
+  return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
 }
 
 async function buildFlow(pkg) {
@@ -214,7 +167,7 @@ async function buildWebpack(pkg) {
 }
 
 async function clean(pkg) {
-  pkg = await getDefaultOptions(pkg);
+  pkg = await getUserZeropackOptions(pkg);
   return Promise.all(
     filterMains(["browser", "main", "module"], pkg)
       .filter(Boolean)
@@ -233,13 +186,5 @@ async function zeropack(pkg) {
 }
 
 module.exports = {
-  buildFlow,
-  buildWebpack,
-  clean,
-  getDefaultOptions,
-  getFlowOptions,
-  getOutputPath,
-  getUserBabelOptions,
-  getWebpackOptions,
   zeropack
 };

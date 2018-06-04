@@ -26,6 +26,7 @@
     "webpack": "^4.2.0",
     "webpack-emit-all-plugin": "^1.0.0",
     "webpack-node-externals": "^1.6.0",
+    "webpack-serve": "^1.0.2",
     "yargs": "^11.0.0"
   },
   "bin": "./bin.js",
