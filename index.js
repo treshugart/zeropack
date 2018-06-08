@@ -14,9 +14,9 @@ const webpack = require("webpack");
 const webpackNodeExternals = require("webpack-node-externals");
 
 const defaultBabelPresets = [
+  babelPresetStage0,
   babelPresetFlow,
-  babelPresetReact,
-  babelPresetStage0
+  babelPresetReact
 ];
 
 async function cwdPath(...parts) {
@@ -43,25 +43,23 @@ function getOutputPath(file) {
   return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
 }
 
-function filterMains(mains, pkg) {
-  return mains.filter(field => field in pkg && pkg.mains.indexOf(field) > -1);
-}
-
 async function getBabelOptions(pkg) {
   const nodeVersion = await getNodeVersion();
   const babelConfig = merge(await getUserBabelOptions(), {
     sourceMaps: true,
-    presets: defaultBabelPresets,
     env: {
       main: {
-        presets: [[babelPresetEnv, { targets: { node: nodeVersion } }]]
+        presets: [
+          [babelPresetEnv, { targets: { node: nodeVersion } }],
+          ...defaultBabelPresets
+        ]
       },
       module: {
-        presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
+        presets: [[babelPresetEnv, { modules: false }], ...defaultBabelPresets]
       }
     }
   });
-  return filterMains(["main", "module"], pkg).map(field => {
+  return ["main", "module"].filter(field => field in pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
@@ -81,18 +79,20 @@ async function getFlowOptions(pkg) {
   if (!pkg.devDependencies["flow-bin"]) {
     return [];
   }
-  return filterMains(["browser", "main", "module"], pkg).map(field => {
-    const pkgField = pkg[field];
-    return {
-      webpack: {
-        entry: pkg.source,
-        output: {
-          filename: path.basename(pkgField),
-          path: getOutputPath(pkgField)
+  return ["browser", "main", "module"]
+    .filter(field => field in pkg)
+    .map(field => {
+      const pkgField = pkg[field];
+      return {
+        webpack: {
+          entry: pkg.source,
+          output: {
+            filename: path.basename(pkgField),
+            path: getOutputPath(pkgField)
+          }
         }
-      }
-    };
-  });
+      };
+    });
 }
 
 async function getWebpackOptions(pkg) {
@@ -108,13 +108,12 @@ async function getWebpackOptions(pkg) {
   };
   const babelConfig = merge(await getUserBabelOptions(), {
     env: {
-      presets: defaultBabelPresets,
       browser: {
-        presets: [babelPresetEnv]
+        presets: [babelPresetEnv, ...defaultBabelPresets]
       }
     }
   });
-  return filterMains(["browser"], pkg).map(field => {
+  return ["browser"].filter(field => field in pkg).map(field => {
     const pkgField = pkg[field];
     return {
       env: field,
@@ -236,7 +235,8 @@ async function buildWebpack(pkg) {
 
 async function clean(pkg) {
   return Promise.all(
-    filterMains(["browser", "main", "module"], pkg)
+    ["browser", "main", "module"]
+      .map(field => pkg[field])
       .filter(Boolean)
       .map(fieldPath => getOutputPath(fieldPath))
       .filter((field, index, array) => array.indexOf(field) === index)
@@ -250,7 +250,6 @@ async function zeropack(pkg) {
       devDependencies: {},
       externals: (await cwdPath("node_modules")) ? webpackNodeExternals() : [],
       main: "dist/index.js",
-      mains: ["browser", "main", "module"],
       mode: "development",
       source: "./src/index.js"
     },
