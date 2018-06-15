@@ -6,8 +6,10 @@ const babelPresetStage0 = require("babel-preset-stage-0");
 const cosmiconfig = require("cosmiconfig");
 const flowCopySource = require("flow-copy-source");
 const fs = require("fs-extra");
+const map = require("lodash/map");
 const merge = require("lodash/merge");
 const path = require("path");
+const pickBy = require("lodash/pickBy");
 const sourceTrace = require("source-trace");
 const uppercamelcase = require("uppercamelcase");
 const webpack = require("webpack");
@@ -20,29 +22,64 @@ const defaultBabelPresets = [
   babelPresetStage0
 ];
 
-async function readFile(...parts) {
+async function getPath(...parts) {
   const possiblePath = path.join(process.cwd(), ...parts);
-  return (await fs.exists(possiblePath))
+  return (await fs.exists(possiblePath)) ? possiblePath : null;
+}
+
+async function importFile(...parts) {
+  const possiblePath = await getPath(...parts);
+  return possiblePath ? require(possiblePath) : null;
+}
+
+async function readFile(...parts) {
+  const possiblePath = await getPath(...parts);
+  return possiblePath
     ? (await fs.readFile(possiblePath)).toString("utf-8")
     : null;
 }
 
 async function getDefaultBabelOptions() {
+  const pkg = getPkgOptions();
+  const node = pkg.engines ? pkg.engines.node : "current";
   return {
-    presets: defaultBabelPresets,
-    sourceMaps: true,
+    // We have to add the stage-0 preset after the env preset otherwise
+    // it complains that the class properties transform doesn't exist.
     env: {
+      // Uses the env preset, straight up.
       browser: {
-        presets: [babelPresetEnv]
+        presets: [...defaultBabelPresets, babelPresetEnv, babelPresetStage0]
       },
+      // Customises the env preset to target node.
       main: {
-        presets: [[babelPresetEnv, { targets: { node: pkg.engines.node } }]]
+        presets: [
+          ...defaultBabelPresets,
+          [babelPresetEnv, { targets: { node } }],
+          babelPresetStage0
+        ]
       },
+      // Customises the env preset to target esmodules.
       module: {
-        presets: [[babelPresetEnv, { modules: false }], babelPresetStage0]
+        presets: [
+          ...defaultBabelPresets,
+          [babelPresetEnv, { modules: false }],
+          babelPresetStage0
+        ]
       }
-    }
+    },
+    // We define the defaults even though we have to override them in "env".
+    presets: defaultBabelPresets,
+    sourceMaps: true
   };
+}
+
+async function getUserBabelOptions() {
+  const loaded = await cosmiconfig("babel").load();
+  return loaded ? loaded.config : {};
+}
+
+async function getBabelOptions() {
+  return merge(await getDefaultBabelOptions(), await getUserBabelOptions());
 }
 
 async function getDefaultPkgOptions() {
@@ -54,68 +91,12 @@ async function getDefaultPkgOptions() {
   };
 }
 
-async function getDefaultZeropackOptions(pkg, type) {
-  const pkgType = pkg[type];
-  if (!pkgType) {
-    return;
-  }
-  return {
-    flow: {
-      entry: "./src/index.js",
-      output: {
-        filename: path.basename(pkgType),
-        path: getOutputPath(pkgType)
-      }
-    },
-    webpack: {
-      // Setting the context to the source directory ensures that the dirname
-      // is not prepended to the output dir when emitting all files. For
-      // example if your output path is "dist" and your entry is
-      // "./src/index.js", then your output is "./dist/src/index.js".
-      context: path.resolve("./src"),
-      devtool: "source-map",
-      entry: `./src/index.js`,
-      externals: Object.keys({
-        ...pkg.dependencies,
-        ...pkg.devDependencies,
-        ...pkg.optionalDependencies,
-        ...pkg.peerDependencies
-      }),
-      mode: "development",
-      module: {
-        rules: [
-          {
-            test: /\.jsx?$/,
-            use: [
-              {
-                loader: require.resolve("babel-loader"),
-                options: merge(babelConfig, babelConfigEnv[type])
-              }
-            ]
-          }
-        ]
-      },
-      output: {
-        filename: path.basename(pkgType),
-        library: uppercamelcase(pkg.name),
-        libraryTarget: "umd",
-        path: getOutputPath(pkgType)
-      },
-      resolve: {
-        alias: { [pkg.name]: src }
-      }
-    }
-  };
+async function getUserPkgOptions() {
+  return importFile("package.json");
 }
 
-async function getUserBabelOptions() {
-  const loaded = await cosmiconfig("babel").load();
-  return loaded ? loaded.config : {};
-}
-
-async function getUserZeropackOptions() {
-  const loaded = await cosmiconfig("zeropack").load();
-  return loaded ? loaded.config : getDefaultZeropackOptions();
+async function getPkgOptions() {
+  return merge(await getDefaultPkgOptions(), await getUserPkgOptions());
 }
 
 function getOutputPath(file) {
@@ -123,10 +104,74 @@ function getOutputPath(file) {
   return path.join(process.cwd(), dirname === "." ? "dist" : dirname);
 }
 
-async function buildFlow(pkg) {
-  const opt = await getFlowOptions(pkg);
+function getLibraryTarget(type) {
+  return type === "main" ? "commonjs2" : "umd";
+}
+
+async function getDefaultZeropackOptionsForType(type) {
+  const pkg = await getPkgOptions();
+  const { babelConfig, env } = await getBabelOptions();
+  return pkg[type]
+    ? {
+        devtool: "source-map",
+        entry: `./src/index.js`,
+        externals: Object.keys({
+          ...pkg.dependencies,
+          ...pkg.devDependencies,
+          ...pkg.optionalDependencies,
+          ...pkg.peerDependencies
+        }),
+        mode: "development",
+        module: {
+          rules: [
+            {
+              test: /\.jsx?$/,
+              use: [
+                {
+                  loader: require.resolve("babel-loader"),
+                  options: merge(babelConfig, env[type], { env })
+                }
+              ]
+            }
+          ]
+        },
+        output: {
+          filename: path.basename(pkg[type]),
+          library: uppercamelcase(pkg.name),
+          libraryTarget: getLibraryTarget(type),
+          path: getOutputPath(pkg[type])
+        },
+        resolve: {
+          alias: { [pkg.name]: "./src/index.js" }
+        }
+      }
+    : null;
+}
+
+async function getDefaultZeropackOptions() {
+  return {
+    browser: await getDefaultZeropackOptionsForType("browser"),
+    main: await getDefaultZeropackOptionsForType("main"),
+    module: await getDefaultZeropackOptionsForType("module")
+  };
+}
+
+async function getUserZeropackOptions() {
+  const loaded = await cosmiconfig("zeropack").load();
+  return loaded ? loaded.config : {};
+}
+
+async function getZeropackOptions() {
+  return pickBy(
+    merge(await getDefaultZeropackOptions(), await getUserZeropackOptions()),
+    Boolean
+  );
+}
+
+async function buildFlow() {
+  const opt = await getZeropackOptions();
   return Promise.all(
-    opt.map(async o => {
+    map(opt, async o => {
       const { entry } = o;
       const { filename: outputFileBasename, path: outputPath } = o.output;
       const entryResolved = path.resolve(entry);
@@ -144,10 +189,10 @@ async function buildFlow(pkg) {
   );
 }
 
-async function buildWebpack(pkg) {
-  const opt = await getWebpackOptions(pkg);
+async function buildWebpack() {
+  const opt = await getZeropackOptions();
   return Promise.all(
-    opt.map(o => {
+    map(opt, o => {
       return new Promise((yup, nup) => {
         webpack(o, (error, stats) => {
           if (error) {
@@ -166,23 +211,14 @@ async function buildWebpack(pkg) {
   );
 }
 
-async function clean(pkg) {
-  pkg = await getUserZeropackOptions(pkg);
-  return Promise.all(
-    filterMains(["browser", "main", "module"], pkg)
-      .filter(Boolean)
-      .map(fieldPath => getOutputPath(fieldPath))
-      .filter((field, index, array) => array.indexOf(field) === index)
-      .map(async outputPath => fs.remove(outputPath))
-  );
+async function clean() {
+  const opt = await getZeropackOptions();
+  return Promise.all(map(opt, o => fs.remove(o.output.path)));
 }
 
-async function zeropack(pkg) {
-  return Promise.all([
-    await clean(pkg),
-    await buildWebpack(pkg),
-    await buildFlow(pkg)
-  ]);
+async function zeropack() {
+  await clean();
+  return Promise.all([await buildWebpack(), await buildFlow()]);
 }
 
 module.exports = {
