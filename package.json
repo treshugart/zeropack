@@ -1,7 +1,7 @@
 {
   "name": "zeropack",
   "description": "Practical, zero-config Webpack, until you need it.",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "jest"
   },
@@ -17,6 +17,7 @@
     "cosmiconfig": "^4.0.0",
     "flow-copy-source": "^1.3.0",
     "fs-extra": "^5.0.0",
+    "listr": "^0.14.1",
     "lodash": "^4.17.5",
     "no-emit-webpack-plugin": "^1.0.0",
     "node-watch": "^0.5.8",
@@ -29,7 +30,7 @@
     "webpack-serve": "^1.0.2",
     "yargs": "^11.0.0"
   },
-  "bin": "./bin.js",
+  "bin": "./dist/bin/index.js",
   "devDependencies": {
     "flow-bin": "^0.72.0",
     "jest": "^22.4.3",
