@@ -1,10 +1,10 @@
 // @flow
 
-import buildClean from "./build-clean";
-import buildFlow from "./build-flow";
-import buildWebpack from "./build-webpack";
+const buildClean = require("./build-clean");
+const buildFlow = require("./build-flow");
+const buildWebpack = require("./build-webpack");
 
-export default async function zeropack() {
+module.exports = async function buildZeropack() {
   await buildClean();
-  return Promise.all([await buildWebpack(), await buildFlow()]);
-}
+  return Promise.all([buildFlow(), buildWebpack()]);
+};

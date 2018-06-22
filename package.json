@@ -1,7 +1,7 @@
 {
   "name": "zeropack",
   "description": "Practical, zero-config Webpack, until you need it.",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "jest"
   },
@@ -30,7 +30,7 @@
     "webpack-serve": "^1.0.2",
     "yargs": "^11.0.0"
   },
-  "bin": "./dist/bin/index.js",
+  "bin": "./src/bin/index.js",
   "devDependencies": {
     "flow-bin": "^0.72.0",
     "jest": "^22.4.3",

@@ -1,12 +1,12 @@
 // @flow
 
-import babelPresetEnv from "babel-preset-env";
-import babelPresetFlow from "babel-preset-flow";
-import babelPresetReact from "babel-preset-react";
-import babelPresetStage0 from "babel-preset-stage-0";
-import cosmiconfig from "cosmiconfig";
-import merge from "lodash/merge";
-import getPkgOptions from "./get-pkg-options";
+const babelPresetEnv = require("babel-preset-env");
+const babelPresetFlow = require("babel-preset-flow");
+const babelPresetReact = require("babel-preset-react");
+const babelPresetStage0 = require("babel-preset-stage-0");
+const cosmiconfig = require("cosmiconfig");
+const merge = require("lodash/merge");
+const getPkgOptions = require("./get-pkg-options");
 
 const defaultBabelPresets = [
   babelPresetFlow,
@@ -53,6 +53,6 @@ async function getUserBabelOptions() {
   return loaded ? loaded.config : {};
 }
 
-export default async function getBabelOptions() {
+module.exports = async function getBabelOptions() {
   return merge(await getDefaultBabelOptions(), await getUserBabelOptions());
-}
+};

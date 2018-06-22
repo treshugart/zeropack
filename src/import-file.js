@@ -1,8 +1,8 @@
 // @flow
 
-import getPath from "./get-path";
+const getPath = require("./get-path");
 
-export default async function importFile(...parts /*: Array<string>*/) {
+module.exports = async function importFile(...parts /*: Array<string>*/) {
   const possiblePath = await getPath(...parts);
   return possiblePath ? require(possiblePath) : null;
-}
+};

@@ -1,9 +1,9 @@
 // @flow
 
-import merge from "lodash/merge";
-import readPkgUp from "read-pkg-up";
-import importFile from "./import-file";
-import readFile from "./read-file";
+const merge = require("lodash/merge");
+const readPkgUp = require("read-pkg-up");
+const importFile = require("./import-file");
+const readFile = require("./read-file");
 
 async function getDefaultPkgOptions() {
   return {
@@ -15,9 +15,9 @@ async function getDefaultPkgOptions() {
 }
 
 async function getUserPkgOptions() {
-  return (await readPkgUp()).pkg;
+  return importFile("package.json");
 }
 
-export default async function getPkgOptions() {
+module.exports = async function getPkgOptions() {
   return merge(await getDefaultPkgOptions(), await getUserPkgOptions());
-}
+};

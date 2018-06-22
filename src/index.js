@@ -1,3 +1,3 @@
 // @flow
 
-export { default } from "./build-zeropack";
+module.exports = require("./build-zeropack");

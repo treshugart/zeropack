@@ -1,10 +1,10 @@
 // @flow
 
-import map from "lodash/map";
-import webpack from "webpack";
-import getZeropackOptions from "./get-zeropack-options";
+const map = require("lodash/map");
+const webpack = require("webpack");
+const getZeropackOptions = require("./get-zeropack-options");
 
-export default async function buildWebpack() {
+module.exports = async function buildWebpack() {
   const opt = await getZeropackOptions();
   return Promise.all(
     map(opt, o => {
@@ -24,4 +24,4 @@ export default async function buildWebpack() {
       }).catch(console.error);
     })
   );
-}
+};

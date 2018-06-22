@@ -21,14 +21,10 @@ test("custom", async () => {
   expect(await read("dist/main/index.js")).toMatchSnapshot();
   expect(await read("dist/main/index.js.flow")).toMatchSnapshot();
   expect(await read("dist/main/index.js.map")).toMatchSnapshot();
-  expect(await read("dist/main/index.anotherfile.js")).toMatchSnapshot();
   expect(await read("dist/main/index.anotherfile.js.flow")).toMatchSnapshot();
-  expect(await read("dist/main/index.anotherfile.js.map")).toMatchSnapshot();
 
   expect(await read("dist/module/index.js")).toMatchSnapshot();
   expect(await read("dist/module/index.js.flow")).toMatchSnapshot();
   expect(await read("dist/module/index.js.map")).toMatchSnapshot();
-  expect(await read("dist/module/index.anotherfile.js")).toMatchSnapshot();
   expect(await read("dist/module/index.anotherfile.js.flow")).toMatchSnapshot();
-  expect(await read("dist/module/index.anotherfile.js.map")).toMatchSnapshot();
 });

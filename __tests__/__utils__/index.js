@@ -27,7 +27,7 @@ async function rm(p) {
 
 async function run(fixture, ...args) {
   await cwd(fixture);
-  await exec("node", ["../../../bin.js", ...args], {
+  await exec("node", ["../../../src/bin/index.js", ...args], {
     cwd: process.cwd()
   })
     .catch(e => console.error(e))

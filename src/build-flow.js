@@ -1,12 +1,12 @@
 // @flow
 
-import fs from "fs-extra";
-import map from "lodash/map";
-import path from "path";
-import sourceTrace from "source-trace";
-import getZeropackOptions from "./get-zeropack-options";
+const fs = require("fs-extra");
+const map = require("lodash/map");
+const path = require("path");
+const sourceTrace = require("source-trace");
+const getZeropackOptions = require("./get-zeropack-options");
 
-export default async function buildFlow() {
+module.exports = async function buildFlow() {
   const opt = await getZeropackOptions();
   return Promise.all(
     map(opt, async o => {
@@ -25,4 +25,4 @@ export default async function buildFlow() {
       );
     })
   );
-}
+};

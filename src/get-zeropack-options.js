@@ -1,12 +1,12 @@
 // @flow
 
-import cosmiconfig from "cosmiconfig";
-import merge from "lodash/merge";
-import path from 'path';
-import pickBy from "lodash/pickBy";
-import uppercamelcase from "uppercamelcase";
-import getBabelOptions from "./get-babel-options";
-import getPkgOptions from "./get-pkg-options";
+const cosmiconfig = require("cosmiconfig");
+const merge = require("lodash/merge");
+const path = require("path");
+const pickBy = require("lodash/pickBy");
+const uppercamelcase = require("uppercamelcase");
+const getBabelOptions = require("./get-babel-options");
+const getPkgOptions = require("./get-pkg-options");
 
 function getOutputPath(file) {
   const dirname = path.dirname(file);
@@ -70,9 +70,9 @@ async function getUserZeropackOptions() {
   return loaded ? loaded.config : {};
 }
 
-export default async function getZeropackOptions() {
+module.exports = async function getZeropackOptions() {
   return pickBy(
     merge(await getDefaultZeropackOptions(), await getUserZeropackOptions()),
     Boolean
   );
-}
+};
