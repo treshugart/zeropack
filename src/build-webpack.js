@@ -1,13 +1,14 @@
 // @flow
 
 const map = require("lodash/map");
+const pickBy = require("lodash/pickBy");
 const webpack = require("webpack");
 const getZeropackOptions = require("./get-zeropack-options");
 
 module.exports = async function buildWebpack() {
   const opt = await getZeropackOptions();
   return Promise.all(
-    map(opt, o => {
+    map(pickBy(opt, (o, k) => k === "browser"), o => {
       return new Promise((yup, nup) => {
         webpack(o, (error, stats) => {
           if (error) {
