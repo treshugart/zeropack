@@ -5,7 +5,7 @@ const path = require("path");
 const base = path.join(__dirname, "..", "__fixtures__");
 
 async function cwd(newCwd) {
-  newCwd = path.join(base, newCwd);
+  newCwd = path.resolve(base, newCwd);
   const oldCwd = process.cwd();
   const oldCwdFn = process.cwd;
   const newCwdFn = () => newCwd;
@@ -27,7 +27,7 @@ async function rm(p) {
 
 async function run(fixture, ...args) {
   await cwd(fixture);
-  await exec("node", ["../../../src/bin/index.js", ...args], {
+  await exec("node", ["../../bin/index.js", ...args], {
     cwd: process.cwd()
   })
     .catch(e => console.error(e))

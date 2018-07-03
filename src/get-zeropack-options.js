@@ -5,7 +5,7 @@ const merge = require("lodash/merge");
 const path = require("path");
 const pickBy = require("lodash/pickBy");
 const uppercamelcase = require("uppercamelcase");
-const getBabelOptions = require("./get-babel-options");
+const getBabelOptionsForType = require("./get-babel-options-for-type");
 const getPkgOptions = require("./get-pkg-options");
 
 function getOutputPath(file) {
@@ -19,7 +19,6 @@ function getLibraryTarget(type) {
 
 async function getDefaultZeropackOptionsForType(type) {
   const pkg = await getPkgOptions();
-  const { babelConfig, env } = await getBabelOptions();
   return pkg[type]
     ? {
         devtool: "source-map",
@@ -38,7 +37,7 @@ async function getDefaultZeropackOptionsForType(type) {
               use: [
                 {
                   loader: require.resolve("babel-loader"),
-                  options: merge(babelConfig, env[type], { env })
+                  options: getBabelOptionsForType(type)
                 }
               ]
             }

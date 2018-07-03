@@ -6,11 +6,10 @@ const map = require("lodash/map");
 const path = require("path");
 const pickBy = require("lodash/pickBy");
 const trace = require("source-trace");
-const getBabelOptions = require("./get-babel-options");
+const getBabelOptionsForType = require("./get-babel-options-for-type");
 const getZeropackOptions = require("./get-zeropack-options");
 
 module.exports = async function buildBabel() {
-  const optBabel = await getBabelOptions();
   const optZeropack = await getZeropackOptions();
   return Promise.all(
     map(
@@ -23,7 +22,7 @@ module.exports = async function buildBabel() {
           const absoluteDest = path.join(o.output.path, relativeDest);
           const absoluteDestMap = `${absoluteDest}.map`;
           const code = (await fs.readFile(f.resolvedPath)).toString();
-          const transformed = babel.transform(code, optBabel);
+          const transformed = babel.transform(code, getBabelOptionsForType(k));
           const transformedPaths = transformed.code.replace(
             f.originalPath,
             f.path
